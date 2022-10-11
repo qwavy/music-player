@@ -10,28 +10,36 @@ const {width} = Dimensions.get('window');
 const Player = () => {
   const [songIndex, setSongIndex] = useState(0);
   const [soundObj, setSoundObj] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
 
-  const handleMusic = async () => {
-    const soundObj = await Audio.Sound.createAsync(songs[songIndex].url)
-    try {
-      if (!isPlaying) {
-        setIsPlaying(!isPlaying);
-        setSoundObj(soundObj)
-        await soundObj.sound.playAsync();
-      } else {
-        setIsPlaying(!isPlaying);
-        setSoundObj(soundObj)
-        await soundObj.sound.pauseAsync();
+  const handleMusic = async (audio) => {
+      if (soundObj === null) {
+        const playbackObj = new Audio.Sound();
+        const status = await playbackObj.loadAsync(audio.url, {shouldPlay: true});
+        setSoundObj({playbackObj, currentAudio: audio, status});
       }
-    } catch(error) {
-      console.log(error);
-    }
+
+      if (soundObj?.status.isLoaded && soundObj?.status.isPlaying) {
+        const status = await soundObj.playbackObj.pauseAsync();
+        setSoundObj({...soundObj, status})
+      }
+
+      if (soundObj?.status.isLoaded && !soundObj?.status.isPlaying && soundObj?.currentAudio.id === audio?.id) {
+        const status = await soundObj.playbackObj.playAsync()
+        setSoundObj({...soundObj, status})
+      }
+  }
+
+  const stopMusicOnChange = async () => {
+    await soundObj.playbackObj.stopAsync();
+    await soundObj.playbackObj.unloadAsync();
+    setSoundObj(null);
   }
 
   useEffect(() => {
-    return soundObj ? () => soundObj.sound.unloadAsync() : undefined
-  }, [soundObj])
+    if (soundObj !== null) {
+      stopMusicOnChange();      
+    }
+  }, [songIndex])
 
   return (
     <View style={styles.container}>
@@ -75,8 +83,8 @@ const Player = () => {
         <Pressable>
             <Ionicons name='play-skip-back-outline' size={30} color='#00FFFF' />
         </Pressable>
-        <Pressable onPress={handleMusic}>
-            <Ionicons name='ios-play-circle' size={70} color='#00FFFF' />
+        <Pressable onPress={() => handleMusic(songs[songIndex])}>
+            <Ionicons name={soundObj?.status?.isPlaying ? 'ios-pause-circle' : 'ios-play-circle'} size={70} color='#00FFFF' />
         </Pressable>
         <Pressable>
             <Ionicons name='play-skip-forward-outline' size={30} color='#00FFFF' />
