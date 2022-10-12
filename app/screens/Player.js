@@ -1,21 +1,20 @@
 import { View, Text, StyleSheet, Pressable, Dimensions, FlatList, Image } from 'react-native'
-import React, {useState, useEffect} from 'react'
+import React, {useState, useEffect, useRef} from 'react'
 import songs from '../../model/data';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Slider from '@react-native-community/slider';
-import {Audio} from 'expo-av';
+import {play} from '../features/audioControllers';
 
 const {width} = Dimensions.get('window');
 
 const Player = () => {
+  const ref = useRef(null);
   const [songIndex, setSongIndex] = useState(0);
   const [soundObj, setSoundObj] = useState(null);
 
   const handleMusic = async (audio) => {
       if (soundObj === null) {
-        const playbackObj = new Audio.Sound();
-        const status = await playbackObj.loadAsync(audio.url, {shouldPlay: true});
-        setSoundObj({playbackObj, currentAudio: audio, status});
+        play(audio, setSoundObj);
       }
 
       if (soundObj?.status.isLoaded && soundObj?.status.isPlaying) {
@@ -29,15 +28,26 @@ const Player = () => {
       }
   }
 
-  const stopMusicOnChange = async () => {
+  const stopMusicOnScroll = async () => {
     await soundObj.playbackObj.stopAsync();
     await soundObj.playbackObj.unloadAsync();
     setSoundObj(null);
   }
 
   useEffect(() => {
-    if (soundObj !== null) {
-      stopMusicOnChange();      
+    ref.current?.scrollToIndex({
+      animated: true, 
+      index: songIndex
+    });
+
+    if (soundObj !== null && soundObj.status.isPlaying) {
+      stopMusicOnScroll().then(() => {
+        play(songs[songIndex], setSoundObj);
+      })
+    }
+
+    if (soundObj !== null && !soundObj.status.isPlaying) {
+      stopMusicOnScroll()
     }
   }, [songIndex])
 
@@ -45,6 +55,8 @@ const Player = () => {
     <View style={styles.container}>
       <View style={styles.mainContainer}>
         <FlatList
+          ref={ref}
+          initialScrollIndex={songIndex}
           data={songs}
           renderItem={({item}) => (
             <View style={styles.imageContainer}>
@@ -76,17 +88,25 @@ const Player = () => {
           />
           <View style={styles.durationContainer}>
             <Text style={styles.duration}>00:00</Text>
-            <Text style={styles.duration}>00:00</Text>
+            <Text style={styles.duration}>{songs[songIndex]}</Text>
           </View>
       </View>
       <View style={styles.bottomContainer}>
-        <Pressable>
+        <Pressable onPress={() => {
+          if (songIndex === 0) return;
+
+          setSongIndex(songIndex - 1);
+        }}>
             <Ionicons name='play-skip-back-outline' size={30} color='#00FFFF' />
         </Pressable>
         <Pressable onPress={() => handleMusic(songs[songIndex])}>
             <Ionicons name={soundObj?.status?.isPlaying ? 'ios-pause-circle' : 'ios-play-circle'} size={70} color='#00FFFF' />
         </Pressable>
-        <Pressable>
+        <Pressable onPress={() => {
+          if (songIndex === songs.length - 1) return;
+
+          setSongIndex(songIndex + 1);
+        }}>
             <Ionicons name='play-skip-forward-outline' size={30} color='#00FFFF' />
         </Pressable>
       </View>
