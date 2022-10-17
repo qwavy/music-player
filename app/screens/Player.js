@@ -11,10 +11,33 @@ const Player = () => {
   const ref = useRef(null);
   const [songIndex, setSongIndex] = useState(0);
   const [soundObj, setSoundObj] = useState(null);
+  const [position, setPosition] = useState(null);
+  const [duration, setDuration] = useState(null);
+
+  const onPlaybackStatusUpdate = (status) => {
+    console.log(status);
+    if (status.isLoaded && status.isPlaying) {
+      setPosition(status.positionMillis)
+      setDuration(status.durationMillis)
+    }
+
+    if (status.didJustFinish) {
+      if (songIndex === songs.length - 1) return;
+      setSongIndex(songIndex + 1)
+    }
+  };
+
+  const calculateProgressBar = () => {
+    if (position !== null && duration !== null) {
+      return position / duration;
+    }
+
+    return 0;
+  }
 
   const handleMusic = async (audio) => {
       if (soundObj === null) {
-        play(audio, setSoundObj);
+        play(audio, setSoundObj, onPlaybackStatusUpdate);
       }
 
       if (soundObj?.status.isLoaded && soundObj?.status.isPlaying) {
@@ -31,6 +54,8 @@ const Player = () => {
   const stopMusicOnScroll = async () => {
     await soundObj.playbackObj.stopAsync();
     await soundObj.playbackObj.unloadAsync();
+    setPosition(null);
+    setDuration(null);
     setSoundObj(null);
   }
 
@@ -42,7 +67,7 @@ const Player = () => {
 
     if (soundObj !== null && soundObj.status.isPlaying) {
       stopMusicOnScroll().then(() => {
-        play(songs[songIndex], setSoundObj);
+        play(songs[songIndex], setSoundObj, onPlaybackStatusUpdate);
       })
     }
 
@@ -81,14 +106,15 @@ const Player = () => {
          <Slider
             style={styles.slider}
             minimumValue={0}
-            maximumValue={100}
+            maximumValue={1}
+            value={calculateProgressBar()}
             thumbTintColor="#00FFFF"
             minimumTrackTintColor="#00FFFF"
             maximumTrackTintColor="#FFFFFF"
           />
           <View style={styles.durationContainer}>
-            <Text style={styles.duration}>00:00</Text>
-            <Text style={styles.duration}>{songs[songIndex]}</Text>
+            <Text style={styles.duration}>{new Date(position).toISOString().slice(14, 19)}</Text>
+            <Text style={styles.duration}>{songs[songIndex].duration}</Text>
           </View>
       </View>
       <View style={styles.bottomContainer}>
